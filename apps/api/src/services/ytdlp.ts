@@ -21,6 +21,13 @@ function hasCookieConfig(): boolean {
   return Boolean(config.ytdlpCookiesFromBrowser || config.ytdlpCookiesFile)
 }
 
+function rateLimitHint(): string {
+  if (config.isRender) {
+    return 'YouTube 限流（429）。请等待 10–15 分钟后重试，或换一个视频；不要连续多次点击分析。云端服务器无法使用本机 Chrome Cookies。'
+  }
+  return 'YouTube 限流（429）。请等待 10–15 分钟后重试；本地可在 apps/api/.env 设置 YTDLP_COOKIES_FROM_BROWSER=chrome（需先完全关闭 Chrome）。'
+}
+
 async function readStream(
   stream: number | ReadableStream<Uint8Array> | null | undefined,
 ): Promise<string> {
@@ -80,11 +87,7 @@ async function runYtDlp(args: string[], cwd: string, timeoutMs: number): Promise
 
   const combined = `${stderr}\n${stdout}`
   if (isRateLimited(combined)) {
-    throw new AppError(
-      'YouTube 请求过于频繁（429）。请等待 5–15 分钟后重试；或关闭 Chrome 后在 .env 启用 YTDLP_COOKIES_FROM_BROWSER=chrome。',
-      429,
-      'RATE_LIMITED',
-    )
+    throw new AppError(rateLimitHint(), 429, 'RATE_LIMITED')
   }
 
   const lower = combined.toLowerCase()

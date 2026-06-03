@@ -14,7 +14,10 @@ export const config = {
   tempDir: env('TEMP_DIR', './tmp/clipscribe'),
   ytdlpCookiesFromBrowser: env('YTDLP_COOKIES_FROM_BROWSER'),
   ytdlpCookiesFile: env('YTDLP_COOKIES_FILE'),
-  ytdlpSleepRequestsSec: Number.parseFloat(env('YTDLP_SLEEP_REQUESTS', '1')) || 1,
+  ytdlpSleepRequestsSec: Number.parseFloat(
+    env('YTDLP_SLEEP_REQUESTS', process.env.RENDER ? '3' : '1'),
+  ) || 1,
+  isRender: Boolean(process.env.RENDER),
   /** 总结输出语言：zh | en */
   summaryLanguage: env('SUMMARY_LANGUAGE', 'zh').toLowerCase() === 'en' ? 'en' : 'zh',
   /** 字幕优先语言：zh | en */
