@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Build shared
+        run: bun run --filter @clipscribe/shared build
+
+      - name: Typecheck API
+        run: bun run --filter @clipscribe/api typecheck
+
+      - name: Typecheck Web
+        run: bun run --filter @clipscribe/web typecheck
+
+      - name: Build Web
+        run: bun run --filter @clipscribe/web build
+        env:
+          VITE_API_BASE: ${{ vars.API_URL || 'http://localhost:3000' }}
+          VITE_BASE_PATH: /${{ github.event.repository.name }}/
