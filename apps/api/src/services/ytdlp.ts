@@ -39,15 +39,15 @@ async function readStream(
 function buildBaseArgs(): string[] {
   const args = [
     '--sleep-requests',
-    String(config.ytdlpSleepRequestsSec),
+    String(config.isRender ? 1 : config.ytdlpSleepRequestsSec),
     '--sleep-interval',
-    '2',
+    '1',
     '--max-sleep-interval',
-    '8',
+    config.isRender ? '3' : '8',
     '--extractor-retries',
-    '5',
+    config.isRender ? '2' : '5',
     '--retry-sleep',
-    '15',
+    config.isRender ? '5' : '15',
     '--no-playlist',
     '--extractor-args',
     'youtube:player_client=android,web',
@@ -114,7 +114,8 @@ export class YtDlpTranscriptProvider implements TranscriptProvider {
   async fetch(url: string, workDir: string): Promise<TranscriptResult> {
     await mkdir(workDir, { recursive: true })
 
-    for (let attempt = 0; attempt < 2; attempt++) {
+    const maxAttempts = config.isRender ? 1 : 2
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
       if (attempt > 0) {
         console.log('yt-dlp: 429 retry after 60s...')
         await sleep(60_000)
@@ -149,9 +150,9 @@ export class YtDlpTranscriptProvider implements TranscriptProvider {
     let lastError = ''
     let sawRateLimit = false
 
-    const playerClients = ['android', 'web', 'mweb']
+    const playerClients = config.isRender ? ['android'] : ['android', 'web', 'mweb']
     for (let c = 0; c < playerClients.length; c++) {
-      if (c > 0)
+      if (c > 0 && !config.isRender)
         await sleep(8000)
 
       const args = [

@@ -6,6 +6,7 @@ import { analyzeVideo } from '../api/client'
 export const useVideoStore = defineStore('video', () => {
   const url = ref('')
   const loading = ref(false)
+  const loadingMessage = ref('')
   const transcript = ref('')
   const videoTitle = ref('')
   const summary = ref<VideoSummary | null>(null)
@@ -15,6 +16,7 @@ export const useVideoStore = defineStore('video', () => {
   async function analyze(inputUrl: string) {
     url.value = inputUrl
     loading.value = true
+    loadingMessage.value = ''
     error.value = ''
     transcript.value = ''
     videoTitle.value = ''
@@ -22,7 +24,9 @@ export const useVideoStore = defineStore('video', () => {
     formats.value = null
 
     try {
-      const data = await analyzeVideo(inputUrl)
+      const data = await analyzeVideo(inputUrl, msg => {
+        loadingMessage.value = msg
+      })
       videoTitle.value = data.videoTitle
       transcript.value = data.transcript
       summary.value = data.summary
@@ -33,12 +37,14 @@ export const useVideoStore = defineStore('video', () => {
     }
     finally {
       loading.value = false
+      loadingMessage.value = ''
     }
   }
 
   function reset() {
     url.value = ''
     loading.value = false
+    loadingMessage.value = ''
     transcript.value = ''
     videoTitle.value = ''
     summary.value = null
@@ -49,6 +55,7 @@ export const useVideoStore = defineStore('video', () => {
   return {
     url,
     loading,
+    loadingMessage,
     transcript,
     videoTitle,
     summary,

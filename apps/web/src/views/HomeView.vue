@@ -107,10 +107,10 @@ function downloadFmt(ext: 'txt' | 'srt' | 'vtt') {
       <div class="text-center">
         <v-progress-circular indeterminate color="primary" size="56" />
         <p class="mt-4 text-lg text-[#e7ecf3]">
-          正在提取字幕并生成 AI 总结…
+          {{ store.loadingMessage || '正在提取字幕并生成 AI 总结…' }}
         </p>
         <p class="mt-1 text-sm text-[#8b9cb3]">
-          长视频可能需要 1–2 分钟
+          线上首次请求可能需 1–2 分钟（Render 免费实例唤醒），请勿关闭页面
         </p>
       </div>
     </v-overlay>

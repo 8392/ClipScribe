@@ -1,5 +1,12 @@
 <script setup lang="ts">
+import { onMounted } from 'vue'
 import { RouterView } from 'vue-router'
+import { isRemoteApi, warmupApi } from './api/client'
+
+onMounted(() => {
+  if (isRemoteApi())
+    warmupApi().catch(() => { /* 静默预热，失败时 analyze 会再试 */ })
+})
 </script>
 
 <template>

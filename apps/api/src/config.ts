@@ -31,6 +31,8 @@ export const config = {
     openaiApiKey: env('OPENAI_API_KEY'),
     openaiBaseUrl: env('OPENAI_BASE_URL', 'https://api.openai.com/v1'),
   } satisfies LlmConfig,
-  ytdlpTimeoutMs: 180_000,
+  ytdlpTimeoutMs: process.env.RENDER ? 50_000 : 180_000,
+  youtubePageTimeoutMs: process.env.RENDER ? 25_000 : 45_000,
+  youtubeCaptionTimeoutMs: process.env.RENDER ? 30_000 : 60_000,
   llmTimeoutMs: 120_000,
 }

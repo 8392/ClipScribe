@@ -135,7 +135,7 @@ export class YoutubeCaptionsProvider implements TranscriptProvider {
       throw new AppError('无效的 YouTube 链接', 400, 'INVALID_URL')
 
     const watchUrl = `https://www.youtube.com/watch?v=${videoId}`
-    const page = await fetchText(watchUrl, 45_000)
+    const page = await fetchText(watchUrl, config.youtubePageTimeoutMs)
     if (isRateLimited(page.status, page.body))
       throw new AppError('YouTube 页面请求被限流', 429, 'RATE_LIMITED')
     if (page.status !== 200)
@@ -152,7 +152,7 @@ export class YoutubeCaptionsProvider implements TranscriptProvider {
     const captionUrl = track.baseUrl.includes('fmt=')
       ? track.baseUrl
       : `${track.baseUrl}${track.baseUrl.includes('?') ? '&' : '?'}fmt=vtt`
-    const cap = await fetchText(captionUrl, 60_000)
+    const cap = await fetchText(captionUrl, config.youtubeCaptionTimeoutMs)
     if (isRateLimited(cap.status, cap.body))
       throw new AppError('YouTube 字幕请求被限流', 429, 'RATE_LIMITED')
     if (cap.status !== 200 || !cap.body.trim())
