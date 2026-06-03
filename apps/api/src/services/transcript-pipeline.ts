@@ -3,18 +3,25 @@ import { config } from '../config'
 import { AppError } from '../lib/errors'
 import { cleanupWorkDir, createWorkDir, ytdlpProvider } from './ytdlp'
 import { hasServerCookies } from './ytdlp-cookies'
+import { invidiousCaptionsProvider } from './invidious-captions'
+import { pipedCaptionsProvider } from './piped-captions'
 import { youtubeCaptionsProvider } from './youtube-captions'
 
 const RETRYABLE = new Set(['RATE_LIMITED', 'NO_SUBTITLES', 'YTDLP_FAILED'])
 
+function buildProviders() {
+  if (config.isRender) {
+    if (hasServerCookies())
+      return [youtubeCaptionsProvider, pipedCaptionsProvider, invidiousCaptionsProvider, ytdlpProvider]
+    // 无 Cookie：先走第三方代理，避免直连 youtube.com 被机房 IP 限流
+    return [pipedCaptionsProvider, invidiousCaptionsProvider, youtubeCaptionsProvider]
+  }
+  return [ytdlpProvider, youtubeCaptionsProvider, pipedCaptionsProvider]
+}
+
 export async function fetchTranscript(url: string): Promise<TranscriptResult> {
   const workDir = await createWorkDir(config.tempDir)
-  // Render 无 cookies 时跳过 yt-dlp（慢且易 429），避免整请求拖到数分钟导致浏览器超时
-  const providers = config.isRender
-    ? (hasServerCookies()
-        ? [youtubeCaptionsProvider, ytdlpProvider]
-        : [youtubeCaptionsProvider])
-    : [ytdlpProvider, youtubeCaptionsProvider]
+  const providers = buildProviders()
 
   let lastError: AppError | null = null
 

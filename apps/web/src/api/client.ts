@@ -72,9 +72,12 @@ export class ApiClientError extends Error {
 }
 
 export function formatApiError(message: string, code?: ErrorCode): string {
+  if (code === 'RATE_LIMITED' && /YTDLP_COOKIES|YOUTUBE_COOKIES|限流/.test(message))
+    return message
+
   const hints: Partial<Record<ErrorCode, string>> = {
     RATE_LIMITED:
-      '（YouTube 限流：等待 15 分钟重试；若在 Render 部署，请配置 YTDLP_COOKIES_BASE64，见 docs/YOUTUBE_COOKIES.md）',
+      '（YouTube 限流：请稍后重试，或在 Render 配置 YTDLP_COOKIES_BASE64，见 docs/YOUTUBE_COOKIES.md）',
     NO_SUBTITLES: '（请换一个有字幕的视频）',
     YTDLP_FAILED: '（请确认已安装 yt-dlp，或检查 .env 中的 Cookies 配置）',
     LLM_FAILED: '（请检查 apps/api/.env 中的 DASHSCOPE_API_KEY）',
