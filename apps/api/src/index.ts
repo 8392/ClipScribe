@@ -2,12 +2,14 @@ import './load-env'
 import { mkdir } from 'node:fs/promises'
 import { config } from './config'
 import { hasServerCookies, initYtdlpCookies } from './services/ytdlp-cookies'
+import { invalidateYoutubeCookieHeader } from './services/youtube-cookies'
 import { corsHeaders, withCors } from './lib/cors'
 import { jsonError } from './lib/errors'
 import { handleAnalyze } from './routes/analyze'
 
 await mkdir(config.tempDir, { recursive: true })
 await initYtdlpCookies()
+invalidateYoutubeCookieHeader()
 
 const server = Bun.serve({
   hostname: '0.0.0.0',

@@ -20,7 +20,7 @@ export async function initYtdlpCookies(): Promise<void> {
     await mkdir(dir, { recursive: true })
     resolvedCookiesPath = join(dir, 'youtube.txt')
     await writeFile(resolvedCookiesPath, content, 'utf8')
-    console.log('yt-dlp: loaded cookies from YTDLP_COOKIES_BASE64')
+    console.log('yt-dlp: loaded cookies from YTDLP_COOKIES_BASE64 (also used for page caption fetch)')
   }
   catch (e) {
     console.error('Failed to load YTDLP_COOKIES_BASE64:', e)
