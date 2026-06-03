@@ -29,6 +29,13 @@ https://github.com/8392/ClipScribe/settings/variables/actions
 
 > 未设置 `API_URL` 时，线上前端也会默认请求 `https://clipscribe-api.onrender.com`。
 
+## 若 Blueprint 显示 deploy failed
+
+1. 确认已拉取最新代码（含 Dockerfile 修复）
+2. Render Dashboard → ClipScribe Blueprint → **Manual sync**
+3. 或进入 **clipscribe-api** 服务 → **Logs** 查看构建错误
+4. 环境变量 **`DASHSCOPE_API_KEY`** 必须填写，否则服务启动后 LLM 会失败
+
 ## 验收
 
 在 https://8392.github.io/ClipScribe/ 分析一个有字幕的 YouTube 视频。

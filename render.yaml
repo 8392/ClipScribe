@@ -1,4 +1,4 @@
-# Render 一键部署：https://render.com/deploy?repo=https://github.com/8392/ClipScribe
+# https://render.com/deploy?repo=https://github.com/8392/ClipScribe
 services:
   - type: web
     name: clipscribe-api
@@ -7,10 +7,7 @@ services:
     dockerfilePath: ./apps/api/Dockerfile
     dockerContext: .
     healthCheckPath: /health
-    autoDeploy: true
     envVars:
-      - key: PORT
-        value: "3000"
       - key: TEMP_DIR
         value: /tmp/clipscribe
       - key: LLM_PROVIDER
