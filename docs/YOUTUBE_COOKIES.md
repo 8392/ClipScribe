@@ -2,7 +2,7 @@
 
 Render 等云服务器 IP 容易被 YouTube 限流。
 
-部署最新 API 后，线上会**优先**通过 **Piped 代理**拉字幕（不直连 YouTube，多数情况无需 Cookie）。若仍出现 429，再按下面配置 **Cookies** 作为增强。
+部署最新版后，**GitHub Pages 会先用您浏览器的网络**（Piped/Invidious 代理）拉字幕，再交给 Render 只做 AI 总结，避免机房 IP 被 YouTube 限流。若仍失败，再按下面配置 **Cookies**。
 
 ## 步骤（约 3 分钟）
 

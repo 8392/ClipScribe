@@ -11,6 +11,9 @@ export interface VideoSummary {
 
 export interface AnalyzeRequest {
   url: string
+  /** 浏览器端已拉取的字幕（线上绕过 Render IP 限流） */
+  transcript?: string
+  videoTitle?: string
 }
 
 export interface TranscriptFormats {

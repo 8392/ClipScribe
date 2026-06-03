@@ -1,8 +1,8 @@
 import type { AnalyzeRequest, AnalyzeResponse, ApiErrorResponse, ErrorCode } from '@clipscribe/shared'
+import { fetchTranscriptViaProxies } from '@clipscribe/shared'
 
 const PROD_API_FALLBACK = 'https://clipscribe-api.onrender.com'
 
-/** Render 免费实例冷启动 + 字幕 + LLM 可能超过 2 分钟 */
 const WARMUP_TIMEOUT_MS = 120_000
 const ANALYZE_TIMEOUT_MS = 300_000
 
@@ -43,18 +43,17 @@ async function fetchWithTimeout(
 function networkErrorMessage(err: unknown): string {
   if (err instanceof DOMException && err.name === 'AbortError') {
     return isRemoteApi()
-      ? '请求超时。Render 免费实例唤醒较慢，请稍等 1 分钟后重试；若仍失败，可先刷新页面再点「分析」。'
+      ? '请求超时。Render 免费实例唤醒较慢，请稍等 1 分钟后重试。'
       : '请求超时，请稍后重试。'
   }
   if (err instanceof TypeError && /fetch/i.test(err.message)) {
     return isRemoteApi()
-      ? '无法连接 API 服务器（Failed to fetch）。常见原因：Render 实例正在冷启动（约 30–90 秒），请等待后重试；或检查网络与 CORS。'
+      ? '无法连接 API 服务器。请确认 Render 已启动，或稍后重试。'
       : '无法连接 API，请确认本地 API 已启动（apps/api）。'
   }
   return err instanceof Error ? err.message : '请求失败'
 }
 
-/** 唤醒 Render 等休眠中的 API，避免首次 /api/analyze 在 TCP 阶段超时 */
 export async function warmupApi(): Promise<void> {
   if (!API_BASE)
     return
@@ -72,15 +71,14 @@ export class ApiClientError extends Error {
 }
 
 export function formatApiError(message: string, code?: ErrorCode): string {
-  if (code === 'RATE_LIMITED' && /YTDLP_COOKIES|YOUTUBE_COOKIES|限流/.test(message))
+  if (code === 'RATE_LIMITED' && /YTDLP_COOKIES|YOUTUBE_COOKIES|限流|刷新/.test(message))
     return message
 
   const hints: Partial<Record<ErrorCode, string>> = {
-    RATE_LIMITED:
-      '（YouTube 限流：请稍后重试，或在 Render 配置 YTDLP_COOKIES_BASE64，见 docs/YOUTUBE_COOKIES.md）',
+    RATE_LIMITED: '（YouTube 限流，请刷新重试或配置 Render Cookie）',
     NO_SUBTITLES: '（请换一个有字幕的视频）',
-    YTDLP_FAILED: '（请确认已安装 yt-dlp，或检查 .env 中的 Cookies 配置）',
-    LLM_FAILED: '（请检查 apps/api/.env 中的 DASHSCOPE_API_KEY）',
+    YTDLP_FAILED: '（请换视频或稍后重试）',
+    LLM_FAILED: '（请检查 DASHSCOPE_API_KEY）',
     INVALID_URL: '（请检查 YouTube 链接格式）',
   }
   const hint = code ? hints[code] : ''
@@ -92,17 +90,36 @@ export async function analyzeVideo(
   onStatus?: (message: string) => void,
 ): Promise<AnalyzeResponse> {
   if (isRemoteApi()) {
-    onStatus?.('正在连接 API 服务器（免费实例首次唤醒可能需要 1 分钟）…')
+    onStatus?.('正在连接 API 服务器…')
     try {
       await warmupApi()
     }
     catch (e) {
       throw new ApiClientError(networkErrorMessage(e))
     }
+
+    onStatus?.('正在用您的浏览器网络获取字幕…')
+    const local = await fetchTranscriptViaProxies(url, {
+      preferZh: true,
+      pageTimeoutMs: 30_000,
+      captionTimeoutMs: 45_000,
+    })
+
+    if (local?.transcript?.trim()) {
+      onStatus?.('字幕已获取，正在生成 AI 总结…')
+      return postAnalyze({
+        url,
+        transcript: local.transcript,
+        videoTitle: local.videoTitle,
+      })
+    }
   }
 
-  onStatus?.('正在提取字幕并生成 AI 总结…')
+  onStatus?.('正在通过服务器获取字幕并总结…')
+  return postAnalyze({ url })
+}
 
+async function postAnalyze(body: AnalyzeRequest): Promise<AnalyzeResponse> {
   let res: Response
   try {
     res = await fetchWithTimeout(
@@ -110,7 +127,7 @@ export async function analyzeVideo(
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url } satisfies AnalyzeRequest),
+        body: JSON.stringify(body),
       },
       ANALYZE_TIMEOUT_MS,
     )
