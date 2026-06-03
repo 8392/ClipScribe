@@ -40,9 +40,12 @@
 | **Variable** | `API_URL` | Render API 地址，无尾部 `/`，如 `https://clipscribe-api.onrender.com` |
 | **Secret**（可选） | `RENDER_DEPLOY_HOOK` | Render → Service → Settings → Deploy Hook |
 
-### Settings → Pages
+### Settings → Pages（必做，否则 Deploy 会失败）
 
-- **Source**：GitHub Actions（不要选 Deploy from branch）
+打开：https://github.com/8392/ClipScribe/settings/pages
+
+- **Build and deployment → Source**：选择 **GitHub Actions**（不要选 Deploy from branch）
+- 保存后，到 Actions 重新运行 **Deploy** workflow（或再 push 一次）
 
 ---
 
