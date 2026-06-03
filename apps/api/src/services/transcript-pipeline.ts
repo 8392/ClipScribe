@@ -44,7 +44,7 @@ export async function fetchTranscript(url: string): Promise<TranscriptResult> {
 
     if (config.isRender && !hasServerCookies()) {
       throw new AppError(
-        '服务器无法拉取字幕。请刷新页面后重试（将使用您浏览器的网络获取字幕）；仍失败可在 Render 配置 YTDLP_COOKIES_BASE64，见 docs/YOUTUBE_COOKIES.md。',
+        '字幕代理暂不可用（公共 Piped/Invidious 节点不稳定）。请稍后重试或换有字幕的视频；仍失败可在 Render 配置 YTDLP_COOKIES_BASE64，见 docs/YOUTUBE_COOKIES.md。',
         502,
         'YTDLP_FAILED',
       )

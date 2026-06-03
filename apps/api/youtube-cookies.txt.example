@@ -1,0 +1,2 @@
+# 将扩展导出的 cookies 保存为同目录下的 youtube-cookies.txt（见 docs/YOUTUBE_COOKIES.md）
+# 然后运行: .\scripts\setup-youtube-cookies.ps1

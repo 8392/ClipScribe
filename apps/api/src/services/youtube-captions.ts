@@ -1,13 +1,13 @@
-import { extractVideoId } from '@clipscribe/shared'
 import type { TranscriptProvider, TranscriptResult } from './transcript-provider'
+import { extractVideoId } from '@clipscribe/shared'
 import { config } from '../config'
 import { AppError } from '../lib/errors'
 import { plainTextToSrt, plainTextToVtt } from './transcript'
-import { hasServerCookies } from './ytdlp-cookies'
 import { getYoutubeCookieHeader } from './youtube-cookies'
+import { hasServerCookies } from './ytdlp-cookies'
 
-const UA =
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+const UA
+  = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
 
 const INNERTUBE_ANDROID_KEY = 'AIzaSyA8eiZmM1FaDVBDdkkeR8_qtR7D_1NQX0E'
 
@@ -45,8 +45,9 @@ function parsePlayerResponse(html: string): Record<string, unknown> | null {
   let depth = 0
   for (let i = jsonStart; i < html.length; i++) {
     const c = html[i]
-    if (c === '{')
+    if (c === '{') {
       depth++
+    }
     else if (c === '}') {
       depth--
       if (depth === 0) {
@@ -109,7 +110,7 @@ function xmlTranscriptToPlain(xml: string): string {
 }
 
 function vttOrXmlToPlain(body: string): string {
-  if (/^WEBVTT/m.test(body))
+  if (/^WEBVTT/m.test(body)) {
     return body
       .replace(/^WEBVTT.*$/gm, '')
       .replace(/\d{2}:\d{2}:\d{2}\.\d{3}\s*-->\s*\d{2}:\d{2}:\d{2}\.\d{3}/g, '')
@@ -119,6 +120,7 @@ function vttOrXmlToPlain(body: string): string {
       .filter(Boolean)
       .filter((line, i, arr) => line !== arr[i - 1])
       .join('\n')
+  }
   return xmlTranscriptToPlain(body)
 }
 
@@ -126,7 +128,7 @@ async function baseFetchHeaders(): Promise<Record<string, string>> {
   const headers: Record<string, string> = {
     'User-Agent': UA,
     'Accept-Language': config.subtitleLang === 'zh' ? 'zh-CN,zh;q=0.9,en;q=0.8' : 'en-US,en;q=0.9',
-    Accept: 'text/html,application/json,*/*',
+    'Accept': 'text/html,application/json,*/*',
   }
   const cookie = await getYoutubeCookieHeader()
   if (cookie)

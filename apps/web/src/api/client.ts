@@ -1,5 +1,4 @@
 import type { AnalyzeRequest, AnalyzeResponse, ApiErrorResponse, ErrorCode } from '@clipscribe/shared'
-import { fetchTranscriptViaProxies } from '@clipscribe/shared'
 
 const PROD_API_FALLBACK = 'https://clipscribe-api.onrender.com'
 
@@ -71,13 +70,13 @@ export class ApiClientError extends Error {
 }
 
 export function formatApiError(message: string, code?: ErrorCode): string {
-  if (code === 'RATE_LIMITED' && /YTDLP_COOKIES|YOUTUBE_COOKIES|限流|刷新/.test(message))
+  if (code === 'RATE_LIMITED' && /YTDLP_COOKIES|YOUTUBE_COOKIES|限流|刷新|代理/.test(message))
     return message
 
   const hints: Partial<Record<ErrorCode, string>> = {
-    RATE_LIMITED: '（YouTube 限流，请刷新重试或配置 Render Cookie）',
+    RATE_LIMITED: '（YouTube 限流，可配置 Render Cookie 或稍后重试）',
     NO_SUBTITLES: '（请换一个有字幕的视频）',
-    YTDLP_FAILED: '（请换视频或稍后重试）',
+    YTDLP_FAILED: '（字幕代理暂不可用，请稍后重试或换视频）',
     LLM_FAILED: '（请检查 DASHSCOPE_API_KEY）',
     INVALID_URL: '（请检查 YouTube 链接格式）',
   }
@@ -97,25 +96,9 @@ export async function analyzeVideo(
     catch (e) {
       throw new ApiClientError(networkErrorMessage(e))
     }
-
-    onStatus?.('正在用您的浏览器网络获取字幕…')
-    const local = await fetchTranscriptViaProxies(url, {
-      preferZh: true,
-      pageTimeoutMs: 30_000,
-      captionTimeoutMs: 45_000,
-    })
-
-    if (local?.transcript?.trim()) {
-      onStatus?.('字幕已获取，正在生成 AI 总结…')
-      return postAnalyze({
-        url,
-        transcript: local.transcript,
-        videoTitle: local.videoTitle,
-      })
-    }
   }
 
-  onStatus?.('正在通过服务器获取字幕并总结…')
+  onStatus?.('正在获取字幕并生成 AI 总结（由服务器处理，请稍候）…')
   return postAnalyze({ url })
 }
 
