@@ -17,6 +17,7 @@ WORKDIR /app/apps/api
 
 ENV NODE_ENV=production
 ENV TEMP_DIR=/tmp/clipscribe
+ENV RENDER=true
 
 EXPOSE 10000
 

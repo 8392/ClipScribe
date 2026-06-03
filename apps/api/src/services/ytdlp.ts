@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { config } from '../config'
 import { AppError } from '../lib/errors'
 import { findSubtitleFile, readSubtitleBundle } from './transcript'
+import { getYtdlpCookiesPath, hasServerCookies } from './ytdlp-cookies'
 
 function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms))
@@ -17,15 +18,14 @@ function isCookieError(text: string): boolean {
   return /cookie database|cookies-from-browser|could not copy chrome/i.test(text)
 }
 
-function hasCookieConfig(): boolean {
-  return Boolean(config.ytdlpCookiesFromBrowser || config.ytdlpCookiesFile)
-}
-
 function rateLimitHint(): string {
-  if (config.isRender) {
-    return 'YouTube 限流（429）。请等待 10–15 分钟后重试，或换一个视频；不要连续多次点击分析。云端服务器无法使用本机 Chrome Cookies。'
+  if (hasServerCookies()) {
+    return 'YouTube 仍返回限流（429）。请等待 15 分钟后重试，或更新 Render 中的 YTDLP_COOKIES_BASE64。'
   }
-  return 'YouTube 限流（429）。请等待 10–15 分钟后重试；本地可在 apps/api/.env 设置 YTDLP_COOKIES_FROM_BROWSER=chrome（需先完全关闭 Chrome）。'
+  if (config.isRender) {
+    return 'YouTube 限流（429）。Render 云端 IP 易被拦。请在 Render 环境变量配置 YTDLP_COOKIES_BASE64（见 docs/YOUTUBE_COOKIES.md），或等待 15 分钟后换视频重试。'
+  }
+  return 'YouTube 限流（429）。请等待 15 分钟后重试；或在 apps/api/.env 设置 YTDLP_COOKIES_FROM_BROWSER=chrome（需先完全关闭 Chrome）。'
 }
 
 async function readStream(
@@ -36,30 +36,40 @@ async function readStream(
   return new Response(stream).text()
 }
 
-function buildBaseArgs(useCookies: boolean): string[] {
+function buildBaseArgs(): string[] {
   const args = [
     '--sleep-requests',
     String(config.ytdlpSleepRequestsSec),
     '--sleep-interval',
-    '1',
+    '2',
     '--max-sleep-interval',
-    '5',
+    '8',
     '--extractor-retries',
-    '3',
+    '5',
     '--retry-sleep',
-    '10',
+    '15',
     '--no-playlist',
+    '--extractor-args',
+    'youtube:player_client=android,web',
   ]
-  if (useCookies) {
-    if (config.ytdlpCookiesFromBrowser)
-      args.push('--cookies-from-browser', config.ytdlpCookiesFromBrowser)
-    else if (config.ytdlpCookiesFile)
-      args.push('--cookies', config.ytdlpCookiesFile)
-  }
+
+  const cookiesPath = getYtdlpCookiesPath()
+  if (cookiesPath)
+    args.push('--cookies', cookiesPath)
+  else if (!config.isRender && config.ytdlpCookiesFromBrowser)
+    args.push('--cookies-from-browser', config.ytdlpCookiesFromBrowser)
+
   return args
 }
 
-async function runYtDlp(args: string[], cwd: string, timeoutMs: number): Promise<{ stdout: string, stderr: string, code: number }> {
+interface YtDlpRunResult {
+  stdout: string
+  stderr: string
+  code: number
+  rateLimited: boolean
+}
+
+async function runYtDlp(args: string[], cwd: string, timeoutMs: number): Promise<YtDlpRunResult> {
   let proc: ReturnType<typeof Bun.spawn>
   try {
     proc = Bun.spawn([config.ytdlpPath, ...args], {
@@ -86,26 +96,16 @@ async function runYtDlp(args: string[], cwd: string, timeoutMs: number): Promise
   clearTimeout(timer)
 
   const combined = `${stderr}\n${stdout}`
-  if (isRateLimited(combined)) {
-    throw new AppError(rateLimitHint(), 429, 'RATE_LIMITED')
+  return {
+    stdout,
+    stderr,
+    code: exitCode,
+    rateLimited: isRateLimited(combined),
   }
-
-  const lower = combined.toLowerCase()
-  if (exitCode !== 0 && (lower.includes('not found') || lower.includes('不是内部或外部命令') || lower.includes('enoent'))) {
-    throw new AppError(
-      '未找到 yt-dlp。请安装：https://github.com/yt-dlp/yt-dlp#installation',
-      500,
-      'YTDLP_FAILED',
-    )
-  }
-
-  return { stdout, stderr, code: exitCode }
 }
 
-function getSubtitleStrategies(): Array<{ extra: string[] }> {
-  const zh = { extra: ['--skip-download', '--write-subs', '--write-auto-subs', '--sub-langs', 'zh-Hans,zh-Hant,zh,zh-CN'] }
-  const en = { extra: ['--skip-download', '--write-subs', '--write-auto-subs', '--sub-langs', 'en,en-US,en-GB'] }
-  return config.subtitleLang === 'zh' ? [zh, en] : [en, zh]
+function subtitleLangs(): string {
+  return config.subtitleLang === 'zh' ? 'zh-Hans,zh-Hant,zh,en' : 'en,zh-Hans'
 }
 
 export class YtDlpTranscriptProvider implements TranscriptProvider {
@@ -113,64 +113,75 @@ export class YtDlpTranscriptProvider implements TranscriptProvider {
 
   async fetch(url: string, workDir: string): Promise<TranscriptResult> {
     await mkdir(workDir, { recursive: true })
-    const cookieModes = hasCookieConfig() ? [true, false] : [false]
-    let lastError = ''
-    let sawCookieError = false
 
-    for (const useCookies of cookieModes) {
-      const result = await this.tryDownloadSubs(url, workDir, useCookies)
+    for (let attempt = 0; attempt < 2; attempt++) {
+      if (attempt > 0) {
+        console.log('yt-dlp: 429 retry after 60s...')
+        await sleep(60_000)
+      }
+
+      const result = await this.tryDownloadSubs(url, workDir)
       if (result.ok)
         return result.data
-      lastError = result.error
-      if (result.cookieError)
-        sawCookieError = true
-    }
-
-    if (sawCookieError && !lastError.includes('429')) {
+      if (result.rateLimited)
+        continue
       throw new AppError(
-        '无法读取浏览器 Cookies（请关闭 Chrome 后重试，或删除 .env 中的 YTDLP_COOKIES_FROM_BROWSER）。',
+        result.error
+          ? `无法获取字幕：${result.error.slice(0, 600)}`
+          : '该视频没有可用字幕。请换一个有 CC/自动字幕的视频。',
         422,
-        'YTDLP_FAILED',
+        'NO_SUBTITLES',
       )
     }
 
-    throw new AppError(
-      lastError
-        ? `无法获取字幕：${lastError.slice(0, 600)}`
-        : '该视频没有可用字幕。请换一个有 CC/自动字幕的视频。',
-      422,
-      'NO_SUBTITLES',
-    )
+    throw new AppError(rateLimitHint(), 429, 'RATE_LIMITED')
   }
 
   private async tryDownloadSubs(
     url: string,
     workDir: string,
-    useCookies: boolean,
-  ): Promise<{ ok: true, data: TranscriptResult } | { ok: false, error: string, cookieError: boolean }> {
+  ): Promise<
+    | { ok: true, data: TranscriptResult }
+    | { ok: false, rateLimited: boolean, error: string }
+  > {
     const outputTemplate = '%(id)s.%(ext)s'
-    const base = buildBaseArgs(useCookies)
+    const base = buildBaseArgs()
     let lastError = ''
-    let cookieError = false
+    let sawRateLimit = false
 
-    const strategies = getSubtitleStrategies()
-    for (let i = 0; i < strategies.length; i++) {
-      if (i > 0)
-        await sleep(3000)
+    const playerClients = ['android', 'web', 'mweb']
+    for (let c = 0; c < playerClients.length; c++) {
+      if (c > 0)
+        await sleep(8000)
 
-      const args = [...base, ...strategies[i].extra, '-o', outputTemplate, url]
-      const { stderr, code } = await runYtDlp(args, workDir, config.ytdlpTimeoutMs)
+      const args = [
+        ...base,
+        '--extractor-args',
+        `youtube:player_client=${playerClients[c]}`,
+        '--skip-download',
+        '--write-subs',
+        '--write-auto-subs',
+        '--sub-langs',
+        subtitleLangs(),
+        '-o',
+        outputTemplate,
+        url,
+      ]
 
-      if (code !== 0) {
-        lastError = stderr.trim() || `yt-dlp exited with code ${code}`
-        if (isCookieError(lastError))
-          cookieError = true
+      const { stderr, code, rateLimited } = await runYtDlp(args, workDir, config.ytdlpTimeoutMs)
+      if (rateLimited) {
+        sawRateLimit = true
+        lastError = stderr.trim() || 'HTTP 429'
+        continue
       }
+
+      if (code !== 0)
+        lastError = stderr.trim() || `yt-dlp exited with code ${code}`
 
       const subPath = await findSubtitleFile(workDir)
       if (subPath) {
-        const title = await this.getTitle(url, useCookies)
         const { transcript, formats } = await readSubtitleBundle(workDir, subPath)
+        const title = await this.getTitleSafe(url, workDir)
         return {
           ok: true,
           data: { videoTitle: title, transcript, formats },
@@ -178,24 +189,26 @@ export class YtDlpTranscriptProvider implements TranscriptProvider {
       }
     }
 
-    return { ok: false, error: lastError, cookieError }
+    return {
+      ok: false,
+      rateLimited: sawRateLimit,
+      error: lastError || 'No subtitles',
+    }
   }
 
-  private async getTitle(url: string, useCookies: boolean): Promise<string> {
+  private async getTitleSafe(url: string, workDir: string): Promise<string> {
     try {
-      const { stdout, code } = await runYtDlp(
-        [...buildBaseArgs(useCookies), '--skip-download', '--print', 'title:%(title)s', url],
-        process.cwd(),
-        60_000,
+      const { stdout, code, rateLimited } = await runYtDlp(
+        [...buildBaseArgs(), '--skip-download', '--print', 'title:%(title)s', url],
+        workDir,
+        45_000,
       )
-      if (code !== 0)
+      if (rateLimited || code !== 0)
         return 'YouTube Video'
       const line = stdout.trim().split('\n').map(l => l.replace(/^title:/, '').trim()).filter(Boolean).pop()
       return line || 'YouTube Video'
     }
-    catch (e) {
-      if (e instanceof AppError && e.code === 'RATE_LIMITED')
-        throw e
+    catch {
       return 'YouTube Video'
     }
   }

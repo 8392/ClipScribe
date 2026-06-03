@@ -14,8 +14,10 @@ export const config = {
   tempDir: env('TEMP_DIR', './tmp/clipscribe'),
   ytdlpCookiesFromBrowser: env('YTDLP_COOKIES_FROM_BROWSER'),
   ytdlpCookiesFile: env('YTDLP_COOKIES_FILE'),
+  /** Render 可用：把 cookies.txt 用 base64 编码后整段粘贴 */
+  ytdlpCookiesBase64: env('YTDLP_COOKIES_BASE64'),
   ytdlpSleepRequestsSec: Number.parseFloat(
-    env('YTDLP_SLEEP_REQUESTS', process.env.RENDER ? '3' : '1'),
+    env('YTDLP_SLEEP_REQUESTS', process.env.RENDER ? '5' : '1'),
   ) || 1,
   isRender: Boolean(process.env.RENDER),
   /** 总结输出语言：zh | en */

@@ -1,11 +1,13 @@
 import './load-env'
 import { mkdir } from 'node:fs/promises'
 import { config } from './config'
+import { hasServerCookies, initYtdlpCookies } from './services/ytdlp-cookies'
 import { corsHeaders, withCors } from './lib/cors'
 import { jsonError } from './lib/errors'
 import { handleAnalyze } from './routes/analyze'
 
 await mkdir(config.tempDir, { recursive: true })
+await initYtdlpCookies()
 
 const server = Bun.serve({
   hostname: '0.0.0.0',
@@ -28,6 +30,8 @@ const server = Bun.serve({
           dashscopeConfigured: Boolean(config.llm.dashscopeApiKey),
           summaryLanguage: config.summaryLanguage,
           subtitleLang: config.subtitleLang,
+          isRender: config.isRender,
+          ytdlpCookiesConfigured: hasServerCookies(),
         })
       }
       else if (url.pathname === '/api/analyze' && req.method === 'POST') {
