@@ -8,6 +8,7 @@ import { handleAnalyze } from './routes/analyze'
 await mkdir(config.tempDir, { recursive: true })
 
 const server = Bun.serve({
+  hostname: '0.0.0.0',
   port: config.port,
   async fetch(req) {
     const origin = req.headers.get('Origin')

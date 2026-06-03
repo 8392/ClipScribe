@@ -1,6 +1,17 @@
 import type { AnalyzeRequest, AnalyzeResponse, ApiErrorResponse, ErrorCode } from '@clipscribe/shared'
 
-const API_BASE = (import.meta.env.VITE_API_BASE as string | undefined)?.replace(/\/$/, '') || ''
+const PROD_API_FALLBACK = 'https://clipscribe-api.onrender.com'
+
+function resolveApiBase(): string {
+  const fromEnv = (import.meta.env.VITE_API_BASE as string | undefined)?.trim()
+  if (fromEnv)
+    return fromEnv.replace(/\/$/, '')
+  if (typeof window !== 'undefined' && window.location.hostname.endsWith('github.io'))
+    return PROD_API_FALLBACK
+  return ''
+}
+
+const API_BASE = resolveApiBase()
 
 export class ApiClientError extends Error {
   code?: ErrorCode
