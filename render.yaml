@@ -1,0 +1,27 @@
+# Render Blueprint: https://render.com/docs/blueprint-spec
+# 在 Render Dashboard → New → Blueprint 导入本仓库即可创建 API 服务
+services:
+  - type: web
+    name: clipscribe-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./apps/api/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: "3000"
+      - key: TEMP_DIR
+        value: /tmp/clipscribe
+      - key: LLM_PROVIDER
+        value: qwen
+      - key: LLM_MODEL
+        value: qwen-turbo
+      - key: SUMMARY_LANGUAGE
+        value: zh
+      - key: SUBTITLE_LANG
+        value: zh
+      - key: CORS_ORIGINS
+        value: https://8392.github.io
+      - key: DASHSCOPE_API_KEY
+        sync: false

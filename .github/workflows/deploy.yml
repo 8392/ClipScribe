@@ -3,6 +3,7 @@ name: Deploy
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -22,6 +23,15 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
+
+      - name: Check API_URL variable
+        run: |
+          if [ -z "${{ vars.API_URL }}" ]; then
+            echo "::warning::GitHub Variable API_URL is not set. Set it in repo Settings → Secrets and variables → Actions → Variables"
+            echo "Example: https://clipscribe-api.onrender.com"
+          fi
+
+      - uses: actions/configure-pages@v4
 
       - run: bun install
       - run: bun run --filter @clipscribe/shared build
@@ -50,9 +60,7 @@ jobs:
 
   deploy-api:
     runs-on: ubuntu-latest
-    env:
-      RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
-    if: env.RENDER_DEPLOY_HOOK != ''
     steps:
       - name: Trigger Render deploy
-        run: curl -fsS -X POST "$RENDER_DEPLOY_HOOK"
+        if: ${{ secrets.RENDER_DEPLOY_HOOK != '' }}
+        run: curl -fsS -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}"

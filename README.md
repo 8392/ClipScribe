@@ -78,7 +78,9 @@ bun run dev
 { "url": "https://www.youtube.com/watch?v=xxxx" }
 ```
 
-详细步骤见 [docs/DEPLOY.md](docs/DEPLOY.md)。
+详细步骤见 [docs/DEPLOY.md](docs/DEPLOY.md)（含 Render Blueprint 与 GitHub Pages 配置）。
+
+**线上地址（部署完成后）：** https://8392.github.io/ClipScribe/
 
 ## 部署（GitHub + Render）
 
