@@ -6,16 +6,14 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
-  group: pages
-  cancel-in-progress: false
+  group: deploy-pages
+  cancel-in-progress: true
 
 jobs:
-  build-web:
+  deploy-web:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -24,14 +22,12 @@ jobs:
         with:
           bun-version: latest
 
-      - name: Check API_URL variable
+      - name: Check API_URL
         run: |
           if [ -z "${{ vars.API_URL }}" ]; then
-            echo "::warning::GitHub Variable API_URL is not set. Set it in repo Settings → Secrets and variables → Actions → Variables"
-            echo "Example: https://clipscribe-api.onrender.com"
+            echo "::warning::未设置 GitHub Variable API_URL，前端将无法连接后端 API"
+            echo "请在 Settings → Secrets and variables → Actions → Variables 添加 API_URL"
           fi
-
-      - uses: actions/configure-pages@v4
 
       - run: bun install
       - run: bun run --filter @clipscribe/shared build
@@ -42,21 +38,16 @@ jobs:
           VITE_API_BASE: ${{ vars.API_URL }}
           VITE_BASE_PATH: /${{ github.event.repository.name }}/
 
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: apps/web/dist
+      - name: Add .nojekyll for GitHub Pages
+        run: touch apps/web/dist/.nojekyll
 
-  deploy-pages:
-    needs: build-web
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Deploy to gh-pages branch
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./apps/web/dist
+          publish_branch: gh-pages
+          force_orphan: true
 
   deploy-api:
     runs-on: ubuntu-latest
@@ -68,5 +59,5 @@ jobs:
           if [ -n "$RENDER_DEPLOY_HOOK" ]; then
             curl -fsS -X POST "$RENDER_DEPLOY_HOOK"
           else
-            echo "RENDER_DEPLOY_HOOK not set, skip API redeploy"
+            echo "RENDER_DEPLOY_HOOK not set, skip"
           fi

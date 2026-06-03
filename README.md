@@ -82,6 +82,8 @@ bun run dev
 
 **线上地址（部署完成后）：** https://8392.github.io/ClipScribe/
 
+**若 Pages 显示 404：** 到仓库 [Settings → Pages](https://github.com/8392/ClipScribe/settings/pages)，Source 选 **Deploy from a branch**，Branch 选 **`gh-pages`** / **root**。详见 [docs/DEPLOY.md](docs/DEPLOY.md)。
+
 ## 部署（GitHub + Render）
 
 前端：**GitHub Pages**  
